@@ -16,7 +16,7 @@ IMG_SIZE = (160, 160)
 
 log.info("Cargando modelo...")
 model = tf.keras.models.load_model(MODEL_PATH)
-log.info("Modelo cargado correctamente. Esperando peticiones...")
+log.info("Modelo cargado con exito!")
 
 def preprocess_image(image_bytes):
     image = Image.open(io.BytesIO(image_bytes)).convert("RGB")

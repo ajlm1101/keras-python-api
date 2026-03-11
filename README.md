@@ -260,6 +260,7 @@ http://localhost:8000/docs
 
 # Posibles mejoras
 
+* Agregar más datos a la respuesta de la API.
 * Añadir validación de tipo de imagen.
 * Implementar predicción por lotes.
 * Mejorar la seguridad del contenedor mediante grupos y usuarios.

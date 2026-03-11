@@ -229,7 +229,7 @@ El proyecto incluye un fichero `Dockerfile` para construir la imagen de la API. 
 Para construir la imagen Docker:
 
 ```bash
-docker build -t flowers-api .
+docker build -t keras-api .
 ```
 
 ## Ejecución del contenedor
@@ -237,7 +237,7 @@ docker build -t flowers-api .
 Para iniciar el contenedor:
 
 ```bash
-docker run -p 8000:8000 flowers-api
+docker run -p 8000:8000 keras-api
 ```
 
 Esto expone la API en el puerto **8000** del host.

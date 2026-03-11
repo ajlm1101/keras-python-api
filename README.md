@@ -260,5 +260,6 @@ http://localhost:8000/docs
 
 # Posibles mejoras
 
-* Añadir validación de tipo de imagen
-* Implementar predicción por lotes
+* Añadir validación de tipo de imagen.
+* Implementar predicción por lotes.
+* Mejorar la seguridad del contenedor mediante grupos y usuarios.

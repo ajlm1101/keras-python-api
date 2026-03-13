@@ -237,7 +237,7 @@ docker build -t keras-api .
 Para iniciar el contenedor:
 
 ```bash
-docker run -p 8000:8000 keras-api
+docker run --name keras-api -p 8000:8000 keras-api
 ```
 
 Esto expone la API en el puerto **8000** del host.

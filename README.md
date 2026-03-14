@@ -18,7 +18,7 @@ La API recibe una imagen, la procesa para adaptarla al formato requerido por el 
 
 ---
 
-# Arquitectura del sistema
+## Arquitectura del sistema
 
 El flujo de ejecución del sistema es el siguiente:
 
@@ -34,7 +34,7 @@ Cliente -> API FastAPI -> Preprocesado imagen -> Modelo MobileNetV2 -> Predicci�
 
 ---
 
-# Librerías utilizadas
+## Librerías utilizadas
 
 * **TensorFlow**: framework de Deep Learning utilizado para cargar el modelo y realizar predicciones.
 * **NumPy**: manipulación de arrays y cálculo de la clase con mayor probabilidad.
@@ -51,11 +51,11 @@ para aplicar el preprocesamiento necesario para el modelo MobileNetV2.
 
 ---
 
-# Ejecución del proyecto
+## Ejecución del proyecto
 
 Este proyecto requiere **Python 3.12.10**. Una vez clonado el repositorio, se recomienda el uso de PyCharm o Visual Studio Code.
 
-## Instalación de dependencias
+### Instalación de dependencias
 
 Las dependencias necesarias se encuentran en el archivo `requirements.txt`.
 
@@ -65,7 +65,7 @@ Instalar dependencias:
 pip install -r requirements.txt
 ```
 
-## Ejecutar la API
+### Ejecutar la API
 
 Una vez instaladas las dependencias, iniciar el servidor con:
 
@@ -84,10 +84,12 @@ Documentación interactiva automática:
 ```
 http://localhost:8000/docs
 ```
----
-# Explicación del código
 
-## Configuración del modelo
+---
+
+## Explicación del código
+
+### Configuración del modelo
 
 El código define algunas constantes principales:
 
@@ -97,15 +99,11 @@ MODEL_PATH = "mobilenetV2_flowers.keras"
 IMG_SIZE = (160, 160)
 ```
 
-**CLASS_NAMES:** Lista de clases que el modelo puede predecir.
+* **CLASS_NAMES:** Lista de clases que el modelo puede predecir.
+* **MODEL_PATH:** Ruta del archivo del modelo entrenado en formato `.keras`.
+* **IMG_SIZE:** Tamaño al que se redimensionan todas las imágenes antes de enviarlas al modelo.
 
-**MODEL_PATH:** Ruta del archivo del modelo entrenado en formato `.keras`.
-
-**IMG_SIZE:** Tamaño al que se redimensionan todas las imágenes antes de enviarlas al modelo.
-
----
-
-## Carga del modelo
+### Carga del modelo
 
 Durante el arranque de la aplicación, el modelo se carga en memoria:
 
@@ -115,21 +113,25 @@ model = tf.keras.models.load_model(MODEL_PATH)
 
 Esto permite que las predicciones posteriores sean rápidas, evitando recargar el modelo en cada petición.
 
-## Funciones del código
+### Función de preprocesamiento de la imagen
 
-### preprocess_image()
+Esta función se encarga de preparar la imagen recibida para ser utilizada por el modelo.
 
 ```python
 def preprocess_image(image_bytes):
+    image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    image = image.resize(IMG_SIZE)
+    image_array = np.array(image, dtype=np.float32)
+    image_array = preprocess_input(image_array)
+    image_array = np.expand_dims(image_array, axis=0)
+    return image_array
 ```
 
-Esta función se encarga de **preparar la imagen recibida para ser utilizada por el modelo de Deep Learning**.
-
-#### Parámetros
+Recibe el siguiente parámetro:
 
 * `image_bytes`: imagen recibida en formato binario.
 
-#### Proceso que realiza
+A continuación, se describe el proceso que realiza
 
 1. Abre la imagen desde los bytes recibidos.
 2. Convierte la imagen a formato RGB.
@@ -137,8 +139,6 @@ Esta función se encarga de **preparar la imagen recibida para ser utilizada por
 4. Convierte la imagen en un array de NumPy.
 5. Aplica el preprocesado requerido por MobileNetV2.
 6. Añade una dimensión adicional para representar el batch.
-
-#### Salida
 
 Devuelve un tensor con forma:
 
@@ -148,7 +148,7 @@ Devuelve un tensor con forma:
 
 Este formato es el esperado por el modelo para realizar predicciones.
 
-## API REST
+### API REST
 
 La aplicación se crea utilizando FastAPI:
 
@@ -156,37 +156,44 @@ La aplicación se crea utilizando FastAPI:
 app = FastAPI()
 ```
 
-## Endpoint de predicción
+### Endpoint de predicción
 
-### POST `/predict`
+Este endpoint se encarga de recibir la imagen y de devolver la predicción del modelo.
 
-Este endpoint recibe una imagen y devuelve la predicción del modelo.
+````python
+@app.post("/predict")
+async def predict_img(file: UploadFile = File(...))
+````
 
-#### Parámetros
+ Recibe el siguiente parámetro:
 
 * `file`: archivo de imagen enviado mediante `multipart/form-data`.
 
-#### Proceso interno
+Internamente:
 
 1. Lee el archivo subido.
 2. Preprocesa la imagen.
 3. Ejecuta la predicción con el modelo.
 4. Obtiene:
 
-   * índice de la clase más probable
-   * nombre de la clase
-   * nivel de confianza
-
-#### Código principal
+   * Índice de la clase más probable
+   * Nombre de la clase
+   * Nivel de confianza
 
 ```python
-predictions = model.predict(processed_image)
-predicted_index = np.argmax(predictions)
+contents = await file.read()
+processed_image = preprocess_image(contents)
+predictions = model.predict(processed_image, verbose=0)
+predicted_index = int(np.argmax(predictions))
 predicted_class = CLASS_NAMES[predicted_index]
-confidence = np.max(predictions)
+confidence = float(np.max(predictions))
+log.info("Recibida peticion de prediccion, devolviendo resultados...")
+return {
+   "filename": file.filename,
+   "predicted_class": predicted_class,
+   "confidence": confidence
+}
 ```
-
-#### Respuesta
 
 La API devuelve un JSON con la siguiente estructura:
 
@@ -203,18 +210,21 @@ La API devuelve un JSON con la siguiente estructura:
 Si ocurre algún problema durante la predicción, se captura la excepción y se devuelve un error HTTP:
 
 ```python
-HTTPException(status_code=500)
+    try:
+        # Código de la predicción
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Se ha producido una excepcion al predecir")
 ```
 
 Además, el error se registra en el sistema de logs para facilitar la depuración.
 
 ---
 
-# Dockerización y despliegue
+## Dockerización y despliegue
 
 La aplicación puede ejecutarse dentro de un **contenedor Docker** para facilitar su despliegue y garantizar que se ejecute siempre en el mismo entorno.
 
-## Dockerfile
+### Dockerfile
 
 El proyecto incluye un fichero `Dockerfile` para construir la imagen de la API. Este archivo:
 
@@ -224,7 +234,7 @@ El proyecto incluye un fichero `Dockerfile` para construir la imagen de la API. 
 * Expone el puerto **8000** para acceder a la API.
 * Ejecuta el servidor **Uvicorn** que lanza la aplicación FastAPI.
 
-## Construcción de la imagen
+### Construcción de la imagen
 
 Para construir la imagen Docker:
 
@@ -232,7 +242,7 @@ Para construir la imagen Docker:
 docker build -t keras-api .
 ```
 
-## Ejecución del contenedor
+### Ejecución del contenedor
 
 Para iniciar el contenedor:
 
@@ -242,7 +252,7 @@ docker run --name keras-api -p 8000:8000 keras-api
 
 Esto expone la API en el puerto **8000** del host.
 
-## Acceso a la API
+### Acceso a la API
 
 Una vez iniciado el contenedor, la API estará disponible en:
 
@@ -258,9 +268,9 @@ http://localhost:8000/docs
 
 ---
 
-# Posibles mejoras
+## Posibles mejoras
 
-* Agregar más datos a la respuesta de la API.
 * Añadir validación de tipo de imagen.
-* Implementar predicción por lotes.
+* Agregar más datos a la respuesta que pueda proporcionar el modelo.
+* Implementar predicción por lotes en caso de recibir varias imágenes.
 * Mejorar la seguridad del contenedor mediante grupos y usuarios.

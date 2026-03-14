@@ -2,9 +2,8 @@
 
 ## Descripción general
 
-Este proyecto implementa una **API REST para clasificación de imágenes de flores** utilizando un modelo de **Deep Learning basado en MobileNetV2** entrenado con TensorFlow/Keras.
-
-La API está desarrollada con **FastAPI** y permite enviar una imagen mediante una petición HTTP y recibir como respuesta la **clase de flor predicha junto con su nivel de confianza**.
+Este proyecto implementa una API REST para clasificación de imágenes de flores utilizando un modelo entrenado con TensorFlow/Keras.
+Recibe una petición HTTP POST `/predict` y recibir como respuesta la clase de flor predicha junto con su nivel de confianza.
 
 El modelo cargado (`mobilenetV2_flowers.keras`) ha sido entrenado para clasificar imágenes en cinco categorías de flores:
 
@@ -13,8 +12,6 @@ El modelo cargado (`mobilenetV2_flowers.keras`) ha sido entrenado para clasifica
 * Tulips
 * Sunflowers
 * Roses
-
-La API recibe una imagen, la procesa para adaptarla al formato requerido por el modelo y devuelve la predicción correspondiente.
 
 ---
 
@@ -43,17 +40,13 @@ Cliente -> API FastAPI -> Preprocesado imagen -> Modelo MobileNetV2 -> Predicci�
 * **logging**: registro de eventos y errores de la aplicación.
 * **io**: manejo de datos binarios de la imagen recibida.
 
-Además se utiliza:
-
-`tensorflow.keras.applications.mobilenet_v2.preprocess_input`
-
-para aplicar el preprocesamiento necesario para el modelo MobileNetV2.
+Además se utiliza `tensorflow.keras.applications.mobilenet_v2.preprocess_input` para aplicar el preprocesamiento necesario para el modelo MobileNetV2.
 
 ---
 
 ## Ejecución del proyecto
 
-Este proyecto requiere **Python 3.12.10**. Una vez clonado el repositorio, se recomienda el uso de PyCharm o Visual Studio Code.
+Este proyecto requiere **Python 3.12.10**.
 
 ### Instalación de dependencias
 
@@ -113,9 +106,9 @@ model = tf.keras.models.load_model(MODEL_PATH)
 
 Esto permite que las predicciones posteriores sean rápidas, evitando recargar el modelo en cada petición.
 
-### Función de preprocesamiento de la imagen
+### Preprocesamiento de la imagen
 
-Esta función se encarga de preparar la imagen recibida para ser utilizada por el modelo.
+La siguiente funcion se encarga de preparar la imagen recibida para ser utilizada por el modelo:
 
 ```python
 def preprocess_image(image_bytes):
@@ -162,7 +155,21 @@ Este endpoint se encarga de recibir la imagen y de devolver la predicción del m
 
 ````python
 @app.post("/predict")
-async def predict_img(file: UploadFile = File(...))
+async def predict_img(file: UploadFile = File(...)):
+   try:
+      contents = await file.read()
+      processed_image = preprocess_image(contents)
+      predictions = model.predict(processed_image, verbose=0)
+      predicted_index = int(np.argmax(predictions))
+      predicted_class = CLASS_NAMES[predicted_index]
+      confidence = float(np.max(predictions))
+      return {
+         "filename": file.filename,
+         "predicted_class": predicted_class,
+         "confidence": confidence
+      }
+   except Exception as e:
+           raise HTTPException(status_code=500, detail="Se ha producido una excepcion al predecir")
 ````
 
  Recibe el siguiente parámetro:
@@ -180,21 +187,6 @@ Internamente:
    * Nombre de la clase
    * Nivel de confianza
 
-```python
-contents = await file.read()
-processed_image = preprocess_image(contents)
-predictions = model.predict(processed_image, verbose=0)
-predicted_index = int(np.argmax(predictions))
-predicted_class = CLASS_NAMES[predicted_index]
-confidence = float(np.max(predictions))
-log.info("Recibida peticion de prediccion, devolviendo resultados...")
-return {
-   "filename": file.filename,
-   "predicted_class": predicted_class,
-   "confidence": confidence
-}
-```
-
 La API devuelve un JSON con la siguiente estructura:
 
 ```json
@@ -205,18 +197,7 @@ La API devuelve un JSON con la siguiente estructura:
 }
 ```
 
-#### Manejo de errores
-
 Si ocurre algún problema durante la predicción, se captura la excepción y se devuelve un error HTTP:
-
-```python
-    try:
-        # Código de la predicción
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Se ha producido una excepcion al predecir")
-```
-
-Además, el error se registra en el sistema de logs para facilitar la depuración.
 
 ---
 
@@ -233,6 +214,19 @@ El proyecto incluye un fichero `Dockerfile` para construir la imagen de la API. 
 * Instala las librerías definidas en `requirements.txt`.
 * Expone el puerto **8000** para acceder a la API.
 * Ejecuta el servidor **Uvicorn** que lanza la aplicación FastAPI.
+
+```Dockerfile
+FROM python:3.12.10
+WORKDIR /app
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+COPY requirements.txt .
+COPY mobilenetV2_flowers.keras .
+COPY main.py .
+RUN pip install --no-cache-dir -r requirements.txt
+EXPOSE 8000
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
 
 ### Construcción de la imagen
 

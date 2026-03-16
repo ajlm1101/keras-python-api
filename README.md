@@ -78,6 +78,12 @@ Documentación interactiva automática:
 http://localhost:8000/docs
 ```
 
+Para probar la API puede usarse la siguiente orden:
+
+```bash
+curl -X POST "http://localhost:8000/predict" -F "file=@imagen.jpg"
+```
+
 ---
 
 ## Explicación del código
